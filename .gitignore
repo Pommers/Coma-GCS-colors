@@ -1,0 +1,12 @@
+.DS_Store
+.ipynb_checkpoints/
+__pycache__/
+*.pyc
+
+# Large/raw data
+data/Coma*.*
+data/inspected*.*
+*.fits
+*.fits.gz
+
+# Generated output, if reproducible
