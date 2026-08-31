@@ -1,8 +1,20 @@
 from dataclasses import dataclass
 from typing import Dict, Tuple, Optional, List, Union
 
+
 # ----------------------------
-# Config / assumptions
+# Color Config / assumptions
+# ----------------------------
+
+@dataclass
+class ColorConfig:
+    re: float = 8.0                 # Re scale search radius for all galaxies
+    min_css: int = 8                # minimum N to attempt tests
+    n_boot: int = 5000
+    random_state: int = 42
+
+# ----------------------------
+# Pblue Config / assumptions
 # ----------------------------
 
 @dataclass

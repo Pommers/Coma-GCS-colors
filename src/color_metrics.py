@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from typing import Dict, Tuple, Optional, List, Union
 from sklearn.linear_model import HuberRegressor
+import logging
 
 from src.config import (
     Columns,
@@ -70,12 +71,13 @@ def fit_baseline_huber(MV: np.ndarray, y: np.ndarray, eps: float = 1.35):
 
 
 def add_residuals(df: pd.DataFrame, cols: Columns, cfg: AnalysisConfig,
-                  metrics: List[str]) -> pd.DataFrame:
+                  metrics: List[str], logger=None) -> pd.DataFrame:
     """
     For each metric in metrics, fit baseline vs MV and add:
       metric_exp, Delta_metric
     """
-    logger.debug("Adding residuals")
+    if logger:
+        logger.debug("Adding residuals")
     out = df.copy()
     MV = out[cols.gal_MV].to_numpy()
 
