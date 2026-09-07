@@ -11,6 +11,8 @@ from src.config import (
     ClusterCenter,
 )
 
+# Added back in temporarily, as the import fails, but this should not be used anymore
+
 def background_correct_scalar(v_in, v_bg, n_in, n_bg, area_inner, area_annulus):
     if not np.isfinite(area_inner) or not np.isfinite(area_annulus):
         return np.nan
@@ -197,12 +199,29 @@ def compute_Pblue(
         p = np.divide(pb, denom, out=np.full_like(pb, np.nan), where=denom > 0)
 
         if logger:
-            logger.debug(f"Add Pblue to CSS data.")
-            logger.debug(f"Used GMM params:\n {gmm_params}")
+            logger.debug(f"Adding Pblue to CSS data.")
+
+            for lo, hi, (mu_b, sig_b, mu_r, sig_r, f_b) in zip(
+                edges[:-1],
+                edges[1:],
+                gmm_params,
+            ):
+                D = abs(mu_b - mu_r) / np.sqrt(
+                    0.5 * (sig_b**2 + sig_r**2)
+                )
+                logger.debug(
+                    f"... {lo:.1f}–{hi:.1f}: "
+                    f"mu_b={mu_b:.3f}, "
+                    f"sigma_b={sig_b:.3f}, "
+                    f"mu_r={mu_r:.3f}, "
+                    f"sigma_r={sig_r:.3f}, "
+                    f"f_b={f_b:.3f}, "
+                    f"D={D:.3f}"
+                )
         
         Pblue[mid_or_faint] = p
         mag_bin_id[mid_or_faint] = bin_id
 
     return Pblue, mag_bin_id
 
-    
+
