@@ -59,3 +59,22 @@ class ClusterCenter:
     name: str
     ra_deg: float
     dec_deg: float
+
+# ----------------------------
+# Asymmetry Config / assumptions
+# ----------------------------
+
+# --------------- circular angles -------------------
+ANGLE_KEYS = {
+    "mean_PA_deg",
+    "hemi_axis_deg",
+    "blue_axis_deg",
+    "red_axis_deg",
+}
+
+@dataclass
+class AsymmetryConfig:
+    r_arcsec: float = 60.0          # common search radius for all galaxies
+    min_css: int = 8                # minimum N to attempt tests
+    nbins_quadrant: int = 4         # for χ² on angular non-uniformity
+    
