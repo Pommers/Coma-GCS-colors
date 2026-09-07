@@ -127,6 +127,7 @@ def compute_Pblue(
     # optional prior modifier (later): fb(R) model
     # If provided, pass an array fb of shape (N,) OR provide fb_func(r) separately.
     fb: Optional[np.ndarray] = None,
+    logger = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
     Compute P(blue | color, mag) under a mag-binned 2-Gaussian mixture.
@@ -195,6 +196,10 @@ def compute_Pblue(
         # Safe division
         p = np.divide(pb, denom, out=np.full_like(pb, np.nan), where=denom > 0)
 
+        if logger:
+            logger.debug(f"Add Pblue to CSS data.")
+            logger.debug(f"Used GMM params:\n {gmm_params}")
+        
         Pblue[mid_or_faint] = p
         mag_bin_id[mid_or_faint] = bin_id
 
