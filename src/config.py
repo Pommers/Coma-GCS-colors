@@ -44,8 +44,8 @@ class BCG:
 class AnalysisConfig:
     aperture_Re: float = 8.0
     # optional background annulus for "local GC density"
-    bg_annulus_inner_Re: float = 12.0
-    bg_annulus_outer_Re: float = 20.0
+    annulus_inner_Re: float = 12.0  # Should just be annulus_inner_Re now, but refactoring is risky!!! ooops!
+    annulus_outer_Re: float = 20.0  # Should just be annulus_outer_Re now, but refactoring is risky
 
     # bootstrap
     n_boot: int = 300
