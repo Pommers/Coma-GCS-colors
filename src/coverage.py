@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from typing import Dict, Tuple, Optional, List, Union
 from sklearn.linear_model import HuberRegressor
+from shapely.geometry import Polygon, Point
 import logging
 
 from src.config import (
