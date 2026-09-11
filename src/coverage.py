@@ -125,4 +125,30 @@ def weighted_coverage_fraction_elliptical(
         weights[i] = w
 
     return float(np.mean(weights))
+
+
+def coverage_fraction(gal_ra, gal_dec, rin_arcsec, rout_arcsec,
+                      polys, nsamp=2000):
+
+    # random radii in annulus
+    r = np.sqrt(np.random.uniform(rin_arcsec**2, rout_arcsec**2, nsamp))
+    theta = np.random.uniform(0, 2*np.pi, nsamp)
+
+    dra = (r * np.cos(theta)) / 3600.0 / np.cos(np.deg2rad(gal_dec))
+    ddec = (r * np.sin(theta)) / 3600.0
+
+    ra = gal_ra + dra
+    dec = gal_dec + ddec
+
+    inside = 0
+
+    for x, y in zip(ra, dec):
+        p = Point(x, y)
+
+        for poly in polys:
+            if poly.contains(p):
+                inside += 1
+                break
+
+    return inside / nsamp
     
