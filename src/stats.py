@@ -57,7 +57,7 @@ def quantify_trend(df, xcol, ycol, mask, rmax=None, split_value=None, test_name=
     x = d[xcol].values
     y = d[ycol].values
 
-    logger.info(f"\n--- {label} ---")
+    logger.info(f"--- {label} ---")
     logger.info(f"N = {len(x)}")
 
     if len(x) < 10:
@@ -88,6 +88,8 @@ def quantify_trend(df, xcol, ycol, mask, rmax=None, split_value=None, test_name=
     if sample_def=="":
         logger.warning("Warning! - Sample definition not set.")
     
+    logger.info(f"\n")
+
     return {
         "test_name": test_name,
         "sample_definition": sample_def,
