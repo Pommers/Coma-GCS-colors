@@ -145,6 +145,7 @@ def format_test_name(x):
         "xray_peak": "X-ray peak",
         "sz_peak": "SZ peak",
         "geom": "Geometric",
+        "R_bcg_mid_kpc": "BCG midpoint",
         "bcg_mid": "BCG midpoint",
         "nearBCG": "BCG proximity",
         "NGC 4874": "NGC 4874",
@@ -152,7 +153,7 @@ def format_test_name(x):
         "gc_voronoi_density_arcsec2_inv": "Local GC density",
         "log_gc_voronoi_density": "Local GC density",
         "log_tidal_proxy": "BCG tidal proxy",
-        "R_nearBCG_kpc": "Nearest BCG",
+        "R_nearBCG_kpc": "BCG proximity",
         "NearBCG_NGC 4874": "Near NGC 4874",
         "NearBCG_NGC 4889": "Near NGC 4889",
     }
