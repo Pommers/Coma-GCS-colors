@@ -2,6 +2,10 @@ import numpy as np
 import pandas as pd
 
 from scipy.stats import spearmanr
+from scipy.stats import rankdata, pearsonr, t as student_t
+
+import statsmodels.api as sm
+
 from sklearn.linear_model import HuberRegressor
 
 # ---------------------------------------------
@@ -106,4 +110,85 @@ def quantify_trend(df, xcol, ycol, mask, rmax=None, split_value=None, test_name=
 # ---------------------------------------------
 # ---------------------------------------------
 
-    
+def spearman_matrix(df, cols):
+    rho = pd.DataFrame(
+        np.nan,
+        index=cols,
+        columns=cols,
+        dtype=float,
+    )
+
+    pval = rho.copy()
+    nmat = rho.copy()
+
+    for x in cols:
+        for y in cols:
+
+            valid = (np.isfinite(df[x]) & np.isfinite(df[y]))
+
+            n = valid.sum()
+
+            if n >= 3:
+                res = spearmanr(df.loc[valid, x], df.loc[valid, y],)
+
+                rho.loc[x, y] = res.statistic
+                pval.loc[x, y] = res.pvalue
+                nmat.loc[x, y] = n
+
+    return rho, pval, nmat
+
+
+# --- partial Spearman correlation function --- #
+
+def partial_spearman(
+    df,
+    x,
+    y,
+    controls,
+):
+    """
+    Partial Spearman correlation between x and y,
+    controlling for one or more variables.
+
+    All variables are rank transformed first.
+    """
+
+    cols = [x, y] + list(controls)
+
+    d = df[cols].dropna().copy()
+
+    n = len(d)
+    k = len(controls)
+
+    if n <= k + 2:
+        return {
+            "N": n,
+            "rho_partial": np.nan,
+            "p": np.nan,
+        }
+
+    # Rank transform
+    ranks = pd.DataFrame({col: rankdata(d[col]) for col in cols}, index=d.index,)
+
+    # Controls
+    X = sm.add_constant(ranks[list(controls)], has_constant="add",)
+
+    # Residualize x and y against controls
+    resid_x = sm.OLS(ranks[x], X, ).fit().resid
+    resid_y = sm.OLS( ranks[y], X, ).fit().resid
+
+    # Pearson correlation of rank residuals
+    r = pearsonr(resid_x, resid_y, ).statistic
+
+    # Approximate significance
+    dof = n - k - 2
+
+    tval = (r * np.sqrt(dof / (1.0 - r**2)))
+
+    p = 2.0 * student_t.sf(np.abs(tval), df=dof,)
+
+    return {
+        "N": n,
+        "rho_partial": r,
+        "p": p,
+    }
