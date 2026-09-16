@@ -224,4 +224,45 @@ def compute_Pblue(
 
     return Pblue, mag_bin_id
 
+# ----------------------------------------------------------------------- #
 
+def get_matched_color_pblue_samples(inner, annulus, cols):
+    """
+    Return the exact matched color/Pblue samples used by the
+    galaxy-level metrics.
+    """
+
+    inner_color = (
+        inner[cols.gc_color].to_numpy(dtype=float)
+        if cols.gc_color in inner.columns
+        else np.array([], dtype=float)
+    )
+    inner_pblue = inner["Pblue"].to_numpy(dtype=float)
+
+    inner_mask = (
+        np.isfinite(inner_color)
+        & np.isfinite(inner_pblue)
+    )
+
+    ann_color = (
+        annulus[cols.gc_color].to_numpy(dtype=float)
+        if cols.gc_color in annulus.columns
+        else np.array([], dtype=float)
+    )
+    ann_pblue = annulus["Pblue"].to_numpy(dtype=float)
+
+    ann_mask = (
+        np.isfinite(ann_color)
+        & np.isfinite(ann_pblue)
+    )
+
+    return {
+        "inner_color": inner_color[inner_mask],
+        "inner_pblue": inner_pblue[inner_mask],
+        "ann_color": ann_color[ann_mask],
+        "ann_pblue": ann_pblue[ann_mask],
+
+        # useful for tracing actual CSS membership
+        "inner_index": inner.index.to_numpy()[inner_mask],
+        "ann_index": annulus.index.to_numpy()[ann_mask],
+    }

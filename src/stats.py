@@ -7,6 +7,7 @@ from scipy.stats import rankdata, pearsonr, t as student_t
 import statsmodels.api as sm
 
 from sklearn.linear_model import HuberRegressor
+from src.color_metrics import fit_baseline_huber
 
 # ---------------------------------------------
 # --- Quantify trends and add uncertainties ---
@@ -192,3 +193,91 @@ def partial_spearman(
         "rho_partial": r,
         "p": p,
     }
+
+# ------------------------------------------------------------------------- #
+
+def bootstrap_mean_draws(
+    values,
+    n_boot,
+    rng,
+    batch_size=250,
+):
+    """
+    Bootstrap draws of the sample mean.
+
+    Resamples the supplied 1-D values with replacement while
+    keeping the original sample size fixed.
+    """
+
+    values = np.asarray(values, dtype=float)
+    values = values[np.isfinite(values)]
+
+    n = len(values)
+
+    if n == 0:
+        return np.full(n_boot, np.nan)
+
+    draws = np.full(n_boot, np.nan)
+
+    for start in range(0, n_boot, batch_size):
+
+        stop = min(start + batch_size, n_boot)
+        m = stop - start
+
+        idx = rng.integers(
+            0,
+            n,
+            size=(m, n),
+        )
+
+        draws[start:stop] = values[idx].mean(axis=1)
+
+    return draws
+
+
+def bootstrap_huber_residuals(
+    MV,
+    boot_metric,
+    eps=1.35,
+):
+    """
+    Refit the Huber luminosity baseline for every bootstrap realization.
+
+    Parameters
+    ----------
+    MV : array, shape (N_gal,)
+        Host absolute magnitudes.
+
+    boot_metric : array, shape (N_boot, N_gal)
+        Bootstrap realizations of one galaxy-level metric.
+
+    eps : float
+        Huber epsilon, matching the nominal analysis.
+
+    Returns
+    -------
+    boot_delta : array, shape (N_boot, N_gal)
+        Residuals from the realization-specific Huber baseline.
+    """
+    MV = np.asarray(MV, dtype=float)
+    boot_metric = np.asarray(boot_metric, dtype=float)
+
+    boot_delta = np.full_like(
+        boot_metric,
+        np.nan,
+        dtype=float,
+    )
+
+    for b in range(boot_metric.shape[0]):
+
+        y = boot_metric[b]
+
+        _, yhat = fit_baseline_huber(
+            MV,
+            y,
+            eps=eps,
+        )
+
+        boot_delta[b] = y - yhat
+
+    return boot_delta
