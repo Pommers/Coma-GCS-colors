@@ -266,3 +266,31 @@ def get_matched_color_pblue_samples(inner, annulus, cols):
         "inner_index": inner.index.to_numpy()[inner_mask],
         "ann_index": annulus.index.to_numpy()[ann_mask],
     }
+
+# ----------------------------------------------------------------------- #
+
+def refit_science_residuals(
+    df,
+    mask,
+    metrics,
+    cols,
+    cfg,
+):
+    out = df.loc[mask].copy()
+
+    MV = out[cols.gal_MV].to_numpy(float)
+
+    for metric in metrics:
+        y = out[metric].to_numpy(float)
+
+        _, yhat = fit_baseline_huber(
+            MV,
+            y,
+            eps=cfg.huber_eps,
+        )
+
+        out[f"{metric}_exp"] = yhat
+        out[f"Delta_{metric}"] = y - yhat
+
+    return out
+    
