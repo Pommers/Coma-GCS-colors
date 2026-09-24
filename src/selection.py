@@ -155,6 +155,40 @@ def select_gc_samples_for_galaxy(
 
     return inner, ann
 
+def _select_css_within_radius(gal_row: pd.Series,
+                              css_df: pd.DataFrame,
+                              r_arcsec: float) -> pd.DataFrame:
+    gal_ra, gal_dec = float(gal_row['ra']), float(gal_row['dec'])
+
+    # require coordinates
+    m = np.isfinite(css_df['x_wcs']) & np.isfinite(css_df['y_wcs'])
+    css = css_df.loc[m].copy()
+
+    gal_c = SkyCoord(ra=gal_ra * u.deg, dec=gal_dec * u.deg)
+    css_c = SkyCoord(ra=css['x_wcs'].values * u.deg,
+                     dec=css['y_wcs'].values * u.deg)
+
+    sep = gal_c.separation(css_c).arcsec
+    sel = sep <= float(r_arcsec)
+    if not np.any(sel):
+        # include Pblue column if it exists to keep downstream code simple
+        cols = {'sep_arcsec': [], 'pa_deg': []}
+        if 'Pblue' in css_df.columns:
+            cols['Pblue'] = []
+        return css.iloc[0:0].assign(**cols)
+
+    pa_deg = gal_c.position_angle(css_c[sel]).to(u.deg).value  # 0=N, 90=E
+    out = (css.loc[sel]
+            .assign(sep_arcsec=sep[sel],
+                    pa_deg=pa_deg))
+
+    # if Pblue exists, keep it (and ensure float)
+    if 'Pblue' in out.columns:
+        out['Pblue'] = pd.to_numeric(out['Pblue'], errors='coerce')
+
+    return out
+
+
 def _select_css_color_within_radius(gal_row: pd.Series,
                                     css_df: pd.DataFrame,
                                     r_arcsec: float) -> pd.DataFrame:
