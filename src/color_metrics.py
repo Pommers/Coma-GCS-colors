@@ -11,8 +11,10 @@ from src.config import (
     ClusterCenter,
 )
 
-# Added back in temporarily, as the import fails, but this should not be used anymore
-
+#######################################################################################
+# Added back in temporarily, as the import fails, but this should not be used anymore #
+#                             DON'T USE THIS - OLD METHOD                             #
+#######################################################################################
 def background_correct_scalar(v_in, v_bg, n_in, n_bg, area_inner, area_annulus):
     if not np.isfinite(area_inner) or not np.isfinite(area_annulus):
         return np.nan
