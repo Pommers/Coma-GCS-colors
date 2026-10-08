@@ -281,3 +281,104 @@ def bootstrap_huber_residuals(
         boot_delta[b] = y - yhat
 
     return boot_delta
+
+# ------------------------------------------------------------------ #
+
+def bootstrap_median_ci(vals, n_boot=5000, ci=(16, 84), random_state=None):
+    """
+    Bootstrap uncertainty on the median.
+
+    Returns:
+        median, lo, hi, err_lo, err_hi
+    """
+    vals = np.asarray(vals, dtype=float)
+    vals = vals[np.isfinite(vals)]
+
+    if len(vals) < 3:
+        return np.nan, np.nan, np.nan, np.nan, np.nan
+
+    rng = np.random.default_rng(random_state)
+
+    boot_meds = np.empty(n_boot)
+    n = len(vals)
+
+    for i in range(n_boot):
+        sample = rng.choice(vals, size=n, replace=True)
+        boot_meds[i] = np.median(sample)
+
+    med = np.median(vals)
+    lo, hi = np.percentile(boot_meds, ci)
+
+    return med, lo, hi, med - lo, hi - med
+
+# ------------------------------------------------------------------ #
+
+def bootstrap_median_contrast_ci(
+    inner_colors,
+    annulus_colors,
+    n_boot=5000,
+    random_state=42,
+):
+    """
+    Bootstrap inner median, annular median, and inner-annulus
+    median-color contrast simultaneously.
+
+    Returns a dictionary containing median, 16th/84th percentiles,
+    and asymmetric errors for all three diagnostics.
+    """
+
+    inner_colors = np.asarray(inner_colors)
+    annulus_colors = np.asarray(annulus_colors)
+
+    inner_colors = inner_colors[np.isfinite(inner_colors)]
+    annulus_colors = annulus_colors[np.isfinite(annulus_colors)]
+
+    if len(inner_colors) == 0 or len(annulus_colors) == 0:
+        return None
+
+    # Observed statistics
+    obs_inner = np.median(inner_colors)
+    obs_annulus = np.median(annulus_colors)
+    obs_contrast = obs_inner - obs_annulus
+
+    rng = np.random.default_rng(random_state)
+
+    inner_boot = np.empty(n_boot)
+    ann_boot = np.empty(n_boot)
+    contrast_boot = np.empty(n_boot)
+
+    for i in range(n_boot):
+
+        inner_sample = rng.choice(
+            inner_colors,
+            size=len(inner_colors),
+            replace=True,
+        )
+
+        ann_sample = rng.choice(
+            annulus_colors,
+            size=len(annulus_colors),
+            replace=True,
+        )
+
+        inner_boot[i] = np.median(inner_sample)
+        ann_boot[i] = np.median(ann_sample)
+        contrast_boot[i] = inner_boot[i] - ann_boot[i]
+
+    def summarize(boot, observed):
+        lo, hi = np.percentile(boot, [16, 84])
+
+        return {
+            "median": observed,
+            "lo": lo,
+            "hi": hi,
+            "err_lo": observed - lo,
+            "err_hi": hi - observed,
+        }
+
+    return {
+        "inner": summarize(inner_boot, obs_inner),
+        "annulus": summarize(ann_boot, obs_annulus),
+        "contrast": summarize(contrast_boot, obs_contrast),
+    }
+    
