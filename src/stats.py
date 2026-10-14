@@ -374,6 +374,7 @@ def bootstrap_median_contrast_ci(
             "hi": hi,
             "err_lo": observed - lo,
             "err_hi": hi - observed,
+            "draws": boot,
         }
 
     return {
@@ -381,4 +382,272 @@ def bootstrap_median_contrast_ci(
         "annulus": summarize(ann_boot, obs_annulus),
         "contrast": summarize(contrast_boot, obs_contrast),
     }
-    
+
+# ------------------------------------------------------------------ #
+
+def bootstrap_spearman(
+    df,
+    x_col,
+    y_col,
+    bootstrap_draws,
+    name_col="name",
+    n_iter=10_000,
+    seed=42,
+):
+    """
+    Propagate per-galaxy bootstrap uncertainty in y into a Spearman
+    correlation with x.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Galaxy-level science sample.
+
+    x_col : str
+        Environmental predictor column.
+
+    y_col : str
+        Observed response column.
+
+    bootstrap_draws : dict
+        Mapping:
+            galaxy_name -> array-like bootstrap draws for y
+
+    name_col : str
+        Galaxy identifier used to access bootstrap_draws.
+
+    n_iter : int
+        Number of Monte Carlo realizations.
+
+    seed : int
+        Random seed.
+
+    Returns
+    -------
+    dict
+        Observed rho/p plus bootstrap distribution summary.
+    """
+
+    rng = np.random.default_rng(seed)
+
+    cols = [name_col, x_col, y_col]
+    d = df[cols].dropna().copy()
+
+    # Require bootstrap draws for every retained galaxy
+    has_boot = d[name_col].map(
+        lambda name: (
+            name in bootstrap_draws
+            and len(bootstrap_draws[name]) > 0
+        )
+    )
+
+    d = d.loc[has_boot].copy()
+
+    # Observed Spearman
+    rho_obs, p_obs = spearmanr(
+        d[x_col].to_numpy(dtype=float),
+        d[y_col].to_numpy(dtype=float),
+    )
+
+    names = d[name_col].to_numpy()
+    x = d[x_col].to_numpy(dtype=float)
+
+    rho_draws = np.empty(n_iter)
+
+    for i in range(n_iter):
+
+        y_draw = np.array([
+            rng.choice(bootstrap_draws[name])
+            for name in names
+        ])
+
+        rho_draws[i] = spearmanr(x, y_draw).statistic
+
+    q16, q50, q84 = np.percentile(
+        rho_draws,
+        [16, 50, 84]
+    )
+
+    return {
+        "N": len(d),
+        "rho_obs": rho_obs,
+        "p_obs": p_obs,
+        "rho_boot_median": q50,
+        "rho_boot_lo": q16,
+        "rho_boot_hi": q84,
+        "rho_boot_std": np.std(rho_draws, ddof=1),
+        "frac_positive": np.mean(rho_draws > 0),
+        "frac_negative": np.mean(rho_draws < 0),
+        "rho_draws": rho_draws,
+    }
+
+# ------------------------------------------------------------------ #
+
+def bootstrap_spearman_from_realizations(
+    x,
+    boot_y,
+):
+    """
+    Propagate per-galaxy bootstrap uncertainty in a response variable
+    into the Spearman rank correlation.
+
+    Parameters
+    ----------
+    x : array, shape (N_gal,)
+        Environmental predictor.
+
+    boot_y : array, shape (N_boot, N_gal)
+        Bootstrap realizations of the galaxy-level response.
+
+    Returns
+    -------
+    dict
+        Median and percentile interval of the bootstrap rho
+        distribution.
+    """
+
+    x = np.asarray(x, dtype=float)
+    boot_y = np.asarray(boot_y, dtype=float)
+
+    rho_boot = np.full(
+        boot_y.shape[0],
+        np.nan,
+        dtype=float,
+    )
+
+    for b in range(boot_y.shape[0]):
+
+        y = boot_y[b]
+
+        mask = (
+            np.isfinite(x)
+            & np.isfinite(y)
+        )
+
+        if mask.sum() < 3:
+            continue
+
+        rho_boot[b] = spearmanr(
+            x[mask],
+            y[mask],
+        ).statistic
+
+    good = np.isfinite(rho_boot)
+
+    q16, q50, q84 = np.percentile(
+        rho_boot[good],
+        [16, 50, 84],
+    )
+
+    return {
+        "N_boot": good.sum(),
+        "rho_q16": q16,
+        "rho_q50": q50,
+        "rho_q84": q84,
+        "frac_negative": np.mean(
+            rho_boot[good] < 0
+        ),
+        "frac_positive": np.mean(
+            rho_boot[good] > 0
+        ),
+    }
+
+
+# ------------------------------------------------------------------ #
+
+def hierarchical_bootstrap_spearman(
+    x,
+    boot_y,
+    n_iter=10_000,
+    seed=42,
+):
+    """
+    Hierarchical bootstrap for Spearman rho.
+
+    Combines:
+      1. per-galaxy response uncertainty from bootstrap realizations
+      2. galaxy-level resampling with replacement
+
+    Parameters
+    ----------
+    x : array, shape (N_gal,)
+        Environmental predictor.
+
+    boot_y : array, shape (N_boot, N_gal)
+        Bootstrap realizations of the luminosity-residualized response.
+
+    n_iter : int
+        Number of hierarchical bootstrap iterations.
+
+    seed : int
+        RNG seed.
+
+    Returns
+    -------
+    dict
+        Bootstrap distribution summary for Spearman rho.
+    """
+
+    x = np.asarray(x, dtype=float)
+    boot_y = np.asarray(boot_y, dtype=float)
+
+    rng = np.random.default_rng(seed)
+
+    n_boot_metric, n_gal = boot_y.shape
+
+    rho_draws = np.full(n_iter, np.nan)
+
+    for i in range(n_iter):
+
+        # choose one response-bootstrap realization
+        b = rng.integers(0, n_boot_metric)
+        y = boot_y[b]
+
+        # finite galaxies for this realization
+        mask = np.isfinite(x) & np.isfinite(y)
+
+        x_valid = x[mask]
+        y_valid = y[mask]
+
+        n = len(x_valid)
+
+        if n < 3:
+            continue
+
+        # galaxy-level bootstrap
+        idx = rng.integers(
+            0,
+            n,
+            size=n,
+        )
+
+        rho_draws[i] = spearmanr(
+            x_valid[idx],
+            y_valid[idx],
+        ).statistic
+
+    good = np.isfinite(rho_draws)
+
+    q16, q50, q84 = np.percentile(
+        rho_draws[good],
+        [16, 50, 84],
+    )
+
+    q025, q975 = np.percentile(
+        rho_draws[good],
+        [2.5, 97.5],
+    )
+
+    return {
+        "N_boot": good.sum(),
+        "rho_q16": q16,
+        "rho_q50": q50,
+        "rho_q84": q84,
+        "rho_q025": q025,
+        "rho_q975": q975,
+        "frac_negative": np.mean(rho_draws[good] < 0),
+        "frac_positive": np.mean(rho_draws[good] > 0),
+    } 
+
+# ------------------------------------------------------------------ #
+
